@@ -51,3 +51,28 @@ Force AI to focus only on the reported error or the current file.
 
 ## 📄 License
 MIT License. Created for the Vibecoding community.
+
+
+备注：我是因为修复 Bug 和断点重连太费 Token 才想做这个，实战中可以这样玩：
+当 AI 弹出那句“⚠️ [Gatekeeper] 检测到重型任务...”时：
+如果你很确定哪里错了，直接回：“3”（即本地处理，不许它搜索）。
+如果你毫无头绪，回：“1”（让它搜一次）。
+当你想下班时：
+输入：“Archive / 存档”。
+AI 会吐出 3 行文字（比如：已完成登录逻辑、正在调接口、下一步处理报错）。
+重点：你自己把这 3 行存到记事本。
+第二天回来时：
+把那 3 行贴给 AI，说：“Resume / 继续”。
+你会发现它不再废话，也不会去读 README，直接开始敲代码。
+
+Note: I’m doing this because fixing bugs and re-establishing breakpoints wastes too many tokens.This trick works in actual use:
+When the AI pops up the message:“⚠️ [Gatekeeper] Heavy task detected…”
+If you’re sure exactly what’s wrong, just reply: 3
+(Meaning: handle locally, do NOT search)
+If you have no clue, reply: 1
+(Meaning: let it search once)
+When you’re done for the day:Type: Archive
+The AI will output 3 lines (for example: Login logic completed, API integration in progress, Next step: fix errors).
+Important: save these 3 lines in a notepad yourself.
+When you come back the next day:Paste the 3 lines to the AI and say: Resume
+You’ll find it skips all the extra talk, won’t re-read the README, and starts coding directly.
