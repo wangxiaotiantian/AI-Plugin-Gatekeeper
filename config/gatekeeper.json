@@ -1,0 +1,23 @@
+{
+  "skill_name": "Universal_Plugin_Gatekeeper_Dual",
+  "version": "1.2.0",
+  "description": "Logic gate for AI plugin calls. / AI 插件调用逻辑门控。",
+  "logic_gate": {
+    "interception": {
+      "triggers": ["global_scan", "file_traversal", "re_analysis", "multi_step_search", "遍历文档", "全局搜索"],
+      "action": "HALT_AND_ASK",
+      "template": {
+        "en": "⚠️ [Gatekeeper] Heavy task detected: Plugin call requested.\n1. 【Single-Use】: This turn only.\n2. 【Session-Authorized】: Allow until completion.\n3. 【Local-Only】: Deny, process with current context.",
+        "zh": "⚠️ [Gatekeeper] 检测到重型任务：需要调用插件进行大规模操作。\n1. 【单次授权】：仅允许本次调用。\n2. 【全程授权】：直到本次任务结束不再询问。\n3. 【本地处理】：禁止调用插件，仅基于当前上下文处理。"
+      }
+    },
+    "context_pinning": {
+      "on_pause": "Generate a 3-line [Session_Anchor] in both EN & ZH. / 生成中英双语的 3 行会话锚点。",
+      "on_resume": "Detect [Session_Anchor] -> Skip re-reading/re-planning. / 检测到锚点 -> 跳过重读和重排计划。"
+    },
+    "efficiency_rules": {
+      "bug_fix": "Focus only on error stack. No re-indexing. / 仅锁定报错区域，严禁重新建立索引。",
+      "simple_task": "Direct action. No summaries. / 直接执行，不准输出总结或计划。"
+    }
+  }
+}
