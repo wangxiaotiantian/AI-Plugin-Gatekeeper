@@ -1,23 +1,114 @@
 {
   "skill_name": "Universal_Plugin_Gatekeeper_Dual",
-  "version": "1.2.0",
-  "description": "Logic gate for AI plugin calls. / AI 插件调用逻辑门控。",
-  "logic_gate": {
-    "interception": {
-      "triggers": ["global_scan", "file_traversal", "re_analysis", "multi_step_search", "遍历文档", "全局搜索"],
-      "action": "HALT_AND_ASK",
-      "template": {
-        "en": "⚠️ [Gatekeeper] Heavy task detected: Plugin call requested.\n1. 【Single-Use】: This turn only.\n2. 【Session-Authorized】: Allow until completion.\n3. 【Local-Only】: Deny, process with current context.",
-        "zh": "⚠️ [Gatekeeper] 检测到重型任务：需要调用插件进行大规模操作。\n1. 【单次授权】：仅允许本次调用。\n2. 【全程授权】：直到本次任务结束不再询问。\n3. 【本地处理】：禁止调用插件，仅基于当前上下文处理。"
+  "version": "2.0.0",
+  "description": "Logic gate for AI plugin calls (Cursor/Claude). / AI 插件与重型动作逻辑门控（Cursor/Claude 通用）。",
+
+  "protocol": {
+    "priority": "This file overrides casual assistant habits when conflict occurs. / 与本文件冲突时，以本文件为准。",
+    "supported_clients": ["Cursor", "Claude", "Other_Chat_UI"],
+    "interaction": {
+      "menu_style": "numbered_menu_plus_command_aliases",
+      "user_reply_must_be_single_token": true,
+      "accepted_replies": {
+        "single_use": ["1", "SINGLE", "GK:1"],
+        "session_authorized": ["2", "SESSION", "GK:2"],
+        "local_only": ["3", "LOCAL", "GK:3"]
       }
     },
-    "context_pinning": {
-      "on_pause": "Generate a 3-line [Session_Anchor] in both EN & ZH. / 生成中英双语的 3 行会话锚点。",
-      "on_resume": "Detect [Session_Anchor] -> Skip re-reading/re-planning. / 检测到锚点 -> 跳过重读和重排计划。"
+    "hard_stop_rule": "If a heavy action is planned or imminent, the assistant MUST output the Gatekeeper menu block first, then STOP and wait for a valid user reply. No tools, no file reads beyond the minimum needed to print the menu. / 一旦准备执行重型动作：必须先输出门控菜单并停止，等待用户合法回复；除打印菜单所需外，不得继续工具调用与扩展读取。",
+    "mode_tag_rule": "After the user replies, the assistant MUST print exactly one line mode tag on the next assistant message, then obey it. / 用户回复后，助手下一条消息必须输出且仅输出一行模式标签，然后严格遵守。",
+    "mode_tags": {
+      "single_use": "[GATEKEEPER_MODE=SINGLE_USE]",
+      "session_authorized": "[GATEKEEPER_MODE=SESSION_AUTHORIZED]",
+      "local_only": "[GATEKEEPER_MODE=LOCAL_ONLY]"
+    }
+  },
+
+  "logic_gate": {
+    "interception": {
+      "detection": {
+        "heavy_action_definitions": [
+          "Repo-wide search / 全仓搜索（ripgrep/grep 全项目、无边界 key 搜索、为了小问题扫全树）",
+          "Multi-directory traversal / 多目录遍历（连续打开大量无关文件、为了“理解项目”而广撒网）",
+          "Re-analysis loops / 反复重分析（中断后继续时重新通读 README/大量文档/重做大计划）",
+          "Wide refactors without scope / 无边界重构（未确认范围就跨模块大改）",
+          "Unbounded tool loops / 无边界工具循环（同类搜索/读取重复多次仍无收敛）"
+        ],
+        "trigger_keywords": [
+          "global_scan",
+          "file_traversal",
+          "re_analysis",
+          "multi_step_search",
+          "全仓",
+          "全局搜索",
+          "遍历",
+          "rg ",
+          "ripgrep",
+          "扫描项目",
+          "重新阅读",
+          "重新梳理",
+          "重新规划"
+        ]
+      },
+      "action": "HALT_AND_ASK",
+      "menu_block": {
+        "must_include_prefix": "⚠️ [Gatekeeper]",
+        "must_end_with_wait_instruction": "Reply with ONLY one token from the allowed set. / 仅回复一个合法 token（见 protocol.interaction.accepted_replies）。",
+        "templates": {
+          "en": "⚠️ [Gatekeeper] Heavy task detected.\nI am about to perform a scoped-heavy action (search/traversal/re-analysis).\nChoose ONE (reply ONLY one token):\n1) SINGLE_USE — allow heavy action for this step only\n2) SESSION_AUTHORIZED — allow heavy actions until you say ARCHIVE or FINISH\n3) LOCAL_ONLY — deny heavy actions; work only with current context (stack trace/current file/user-provided snippets)\n\nValid tokens: 1|SINGLE|GK:1, 2|SESSION|GK:2, 3|LOCAL|GK:3\nThen I will print exactly one line mode tag on my next message.\n",
+          "zh": "⚠️ [Gatekeeper] 检测到重型动作风险：我将进行（搜索/遍历/重分析）等高开销操作。\n请选择其一（仅回复一个合法 token）：\n1) SINGLE_USE（单次授权：仅允许当前这一步的重型动作）\n2) SESSION_AUTHORIZED（全程授权：直到你说 ARCHIVE 或 FINISH）\n3) LOCAL_ONLY（本地处理：禁止重型搜索/遍历；只用当前上下文：报错栈/当前文件/你提供的片段）\n\n合法 token：1|SINGLE|GK:1，2|SESSION|GK:2，3|LOCAL|GK:3\n你回复后，我下一条消息会且仅会输出一行模式标签，然后严格执行。\n"
+        }
+      }
     },
+
+    "mode_policies": {
+      "SINGLE_USE": {
+        "allow": ["One narrowly-scoped heavy step explicitly stated before execution / 执行前必须用一句话声明“唯一重型步骤”"],
+        "deny": ["Starting a second heavy step without a new Gatekeeper menu / 未重新门控不得开始第二个重型步骤"],
+        "after_step": "Return to default caution; if another heavy step is needed, show Gatekeeper menu again. / 完成后恢复谨慎模式；若还需要重型步骤，必须再次门控。"
+      },
+      "SESSION_AUTHORIZED": {
+        "allow": ["Multiple heavy steps until session ends / 在会话结束前允许多次重型步骤"],
+        "session_end_commands": ["ARCHIVE", "FINISH", "DONE", "存档", "结束", "完成"],
+        "deny": ["Continuing heavy steps after session end command / 用户结束会话后不得继续重型步骤"]
+      },
+      "LOCAL_ONLY": {
+        "allow": [
+          "Read only user-provided snippets / 只读取用户粘贴的片段",
+          "Read only the current file path explicitly identified by user / 仅读取用户点名的当前文件路径",
+          "Minimal edits based on stack trace / 基于堆栈做最小修改"
+        ],
+        "deny": [
+          "Repo-wide search / 全仓搜索",
+          "Broad directory walks / 广撒网式遍历目录",
+          "Re-reading large docs to 're-establish context' / 为重建上下文重读大量文档",
+          "Generating a large new plan from scratch / 无必要时从头生成大计划"
+        ],
+        "escape_hatch": "If LOCAL_ONLY cannot proceed, ask user to paste missing snippet OR switch mode via Gatekeeper menu. / 若无法继续，要求用户粘贴缺失信息，或重新走门控切换模式。"
+      }
+    },
+
+    "context_pinning": {
+      "archive_commands": ["ARCHIVE", "存档"],
+      "resume_commands": ["RESUME", "继续", "恢复"],
+      "session_anchor": {
+        "format_version": "1",
+        "required_prefix": "[Session_Anchor:Universal_Plugin_Gatekeeper_Dual v2.0.0]",
+        "line_count": 3,
+        "lines": {
+          "line1": "[Session_Anchor:Universal_Plugin_Gatekeeper_Dual v2.0.0]",
+          "line2": "STATUS_EN: <one line> | STATUS_ZH: <一行>",
+          "line3": "NEXT_EN: <one line> | NEXT_ZH: <一行>"
+        },
+        "validation": "Resume only if user pastes exactly 3 lines AND line1 matches required_prefix exactly (no extra spaces). / 仅当用户原样粘贴 3 行且第 1 行完全匹配前缀才允许跳过重读。",
+        "on_resume": "Skip re-reading README/docs and skip re-planning; continue from NEXT_* unless user explicitly requests replan. / 跳过重读 README/文档与重排计划，直接从 NEXT 继续，除非用户明确要求重排。"
+      }
+    },
+
     "efficiency_rules": {
-      "bug_fix": "Focus only on error stack. No re-indexing. / 仅锁定报错区域，严禁重新建立索引。",
-      "simple_task": "Direct action. No summaries. / 直接执行，不准输出总结或计划。"
+      "bug_fix": "Focus on stack trace and the smallest file surface. No repo-wide exploration in LOCAL_ONLY. / 优先堆栈与最小文件面；LOCAL_ONLY 禁止全仓探索。",
+      "simple_task": "Do the change first; avoid long summaries/plans unless user asks. / 先改再说话；除非用户要求，否则不要长总结。",
+      "tool_budget": "State a tool budget when heavy action is unavoidable (e.g., max 3 reads + 1 search) unless SESSION_AUTHORIZED. / 不可避免的重型动作要声明工具预算（例如最多 3 次读取 + 1 次搜索），除非 SESSION_AUTHORIZED。"
     }
   }
 }
